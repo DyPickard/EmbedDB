@@ -12,6 +12,7 @@ extern "C" {
 extern int UnityFailures;
 void setUp(void);
 void tearDown(void);
+void UnityAssertEqualMemory(const void* expected, const void* actual, size_t len, const char* msg);
 
 #define UNITY_BEGIN() (UnityFailures = 0)
 #define UNITY_END() (UnityFailures)
@@ -45,7 +46,7 @@ void tearDown(void);
 #define TEST_ASSERT_GREATER_OR_EQUAL_UINT32_MESSAGE(exp,act,msg) if((uint32_t)(act) < (uint32_t)(exp)){printf("%s Expected >=%u Was %u\n",msg,(uint32_t)(exp),(uint32_t)(act)); UnityFailures++;}
 #define TEST_ASSERT_LESS_OR_EQUAL_UINT32_MESSAGE(exp,act,msg) if((uint32_t)(act) > (uint32_t)(exp)){printf("%s Expected <=%u Was %u\n",msg,(uint32_t)(exp),(uint32_t)(act)); UnityFailures++;}
 #define TEST_ASSERT_EQUAL_FLOAT_MESSAGE(exp,act,msg) if(fabs((double)(exp)-(double)(act))>1e-6){printf("%s Expected %f Was %f\n",msg,(double)(exp),(double)(act)); UnityFailures++;}
-#define TEST_ASSERT_EQUAL_MEMORY_MESSAGE(exp,act,len,msg) if(memcmp((exp),(act),(len))){UNITY_FAIL(msg);} 
+#define TEST_ASSERT_EQUAL_MEMORY_MESSAGE(exp,act,len,msg) UnityAssertEqualMemory((exp),(act),(len),(msg))
 #define TEST_ASSERT_EQUAL_CHAR_ARRAY_MESSAGE(exp,act,len,msg) TEST_ASSERT_EQUAL_MEMORY_MESSAGE(exp,act,len,msg)
 #define TEST_ASSERT_EACH_EQUAL_CHAR_MESSAGE(exp,act,len,msg) TEST_ASSERT_EQUAL_MEMORY_MESSAGE(exp,act,len,msg)
 #define TEST_ASSERT_EQUAL_UINT32_ARRAY_MESSAGE(exp,act,len,msg) if(memcmp((exp),(act),(len)*sizeof(uint32_t))){UNITY_FAIL(msg);}

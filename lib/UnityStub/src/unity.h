@@ -49,8 +49,10 @@ void UnityAssertEqualMemory(const void* expected, const void* actual, size_t len
 #define TEST_ASSERT_EQUAL_MEMORY_MESSAGE(exp,act,len,msg) UnityAssertEqualMemory((exp),(act),(len),(msg))
 #define TEST_ASSERT_EQUAL_CHAR_ARRAY_MESSAGE(exp,act,len,msg) TEST_ASSERT_EQUAL_MEMORY_MESSAGE(exp,act,len,msg)
 #define TEST_ASSERT_EACH_EQUAL_CHAR_MESSAGE(exp,act,len,msg) TEST_ASSERT_EQUAL_MEMORY_MESSAGE(exp,act,len,msg)
-#define TEST_ASSERT_EQUAL_UINT32_ARRAY_MESSAGE(exp,act,len,msg) if(memcmp((exp),(act),(len)*sizeof(uint32_t))){UNITY_FAIL(msg);}
-#define TEST_ASSERT_EQUAL_INT8_ARRAY_MESSAGE(exp,act,len,msg) if(memcmp((exp),(act),(len)*sizeof(int8_t))){UNITY_FAIL(msg);}
+#define TEST_ASSERT_EQUAL_UINT32_ARRAY_MESSAGE(exp,act,len,msg) \
+    UnityAssertEqualMemory((exp),(act),(len)*sizeof(uint32_t),(msg))
+#define TEST_ASSERT_EQUAL_INT8_ARRAY_MESSAGE(exp,act,len,msg) \
+    UnityAssertEqualMemory((exp),(act),(len)*sizeof(int8_t),(msg))
 #define TEST_ASSERT_EQUAL_MEMORY(exp,act,len) TEST_ASSERT_EQUAL_MEMORY_MESSAGE(exp,act,len,"Memory not equal")
 
 #ifdef __cplusplus

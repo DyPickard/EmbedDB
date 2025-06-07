@@ -13,14 +13,14 @@ else
 	MATH = -lm
 	CLEANUP = rm -r -f
 	MKDIR = mkdir -p
-	TARGET_EXTENSION=out
+       TARGET_EXTENSION=exe
 	PYTHON=python3
 endif
 
 .PHONY: clean
 .PHONY: test
 
-PATHU = lib/Unity-Desktop/src/
+PATHU = lib/UnityStub/src/
 PATHS = src/
 PATH_EMBEDDB = src/embedDB/
 PATHSPLINE = src/spline/
@@ -40,7 +40,7 @@ BUILD_PATHS = $(PATHB) $(PATHD) $(PATHO) $(PATHR) $(PATHA)
 
 EMBEDDB_OBJECTS = $(PATHO)embedDB.o $(PATHO)spline.o $(PATHO)embedDBUtility.o
 EMBEDDB_FILE_INTERFACE = $(PATHO)desktopFileInterface.o
-QUERY_OBJECTS = $(PATHO)schema.o $(PATHO)advancedQueries.o
+QUERY_OBJECTS = $(PATHO)schema.o $(PATHO)advancedQueries.o $(PATHO)activeRules.o
 EMBEDDB_DESKTOP = $(PATHO)desktopMain.o
 DISTRIBUTION_OBJECTS = $(PATHO)distribution.o
 
@@ -53,7 +53,7 @@ override CFLAGS += $(if $(filter test-dist,$(MAKECMDGOALS)), $(TEST_DIST_FLAGS),
 SRCT = $(wildcard $(PATHT)*/*.cpp)
 
 COMPILE=gcc -c
-LINK=gcc
+LINK=g++
 DEPEND=gcc -MM -MG -MF
 
 # Transform to results filenames
@@ -141,6 +141,7 @@ clean:
 	$(CLEANUP) $(PATHB)
 
 .PRECIOUS: $(PATHB)Test%.$(TARGET_EXTENSION)
+.PRECIOUS: $(PATHB)test%.$(TARGET_EXTENSION)
 .PRECIOUS: $(PATHD)%.d
 .PRECIOUS: $(PATHO)%.o
 .PRECIOUS: $(PATHR)%.testpass

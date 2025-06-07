@@ -1124,7 +1124,7 @@ int8_t embedDBPut(embedDBState *state, void *key, void *data) {
         return writeTemporaryPage(state, state->buffer);
     }
        
-    if(state->rules[0] != NULL){
+    if(state->rules != NULL && state->numRules > 0 && state->rules[0] != NULL){
         executeRules(state, key, data);
     }
 

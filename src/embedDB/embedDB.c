@@ -1005,6 +1005,11 @@ void indexPage(embedDBState *state, uint32_t pageNumber) {
 int8_t embedDBPut(embedDBState *state, void *key, void *data) {
     /* Copy record into block */
 
+    /* By default records inserted with this function have no variable
+     * length data attached. embedDBPutVar will update this flag when
+     * variable data is present. */
+    state->recordHasVarData = 0;
+
     count_t count = EMBEDDB_GET_COUNT(state->buffer);
     if (state->nextDataPageId > 0 || count > 0) {
         void *previousKey = NULL;
@@ -1930,6 +1935,12 @@ int8_t embedDBSetupVarDataStream(embedDBState *state, void *key, embedDBVarDataS
  * @return	Number of bytes read
  */
 uint32_t embedDBVarDataStreamRead(embedDBState *state, embedDBVarDataStream *stream, void *buffer, uint32_t length) {
+    if (stream == NULL) {
+#ifdef PRINT_ERRORS
+        printf("ERROR: embedDBVarDataStreamRead called with NULL stream\n");
+#endif
+        return 0;
+    }
     if (buffer == NULL) {
 #ifdef PRINT_ERRORS
         printf("ERROR: Cannot pass null buffer to embedDBVarDataStreamRead\n");

@@ -130,7 +130,9 @@ void setUpEmbedDB() {
     embedDBInit(stateUWA, 1);
 
     /* insert UWA data */
-    const char uwaDatafileName[] = "data/uwa500K.bin";
+    const char uwaDatafileName[] = PROJECT_DIR "/data/uwa500K.bin";
+    //const char uwaDatafileName[] = "data/uwa500K.bin";
+
     insertData(stateUWA, uwaDatafileName);
 
     // Init state for SEA dataset
@@ -161,7 +163,8 @@ void setUpEmbedDB() {
     embedDBInit(stateSEA, 1);
 
     /* insert SEA data */
-    const char seaDatafileName[] = "data/sea100K.bin";
+    const char seaDatafileName[] = PROJECT_DIR "data/sea100K.bin";
+    //const char seaDatafileName[] = "data/sea100K.bin";
     insertData(stateSEA, seaDatafileName);
 
     // Init base schema
@@ -172,12 +175,22 @@ void setUpEmbedDB() {
 
     // Open data sources for comparison
     uwaData = (DataSource*)malloc(sizeof(DataSource));
-    uwaData->fp = fopen("data/uwa500K.bin", "rb");
+    uwaData->fp = fopen(PROJECT_DIR "data/uwa500K.bin", "rb");
+    //uwaData->fp = fopen("data/uwa500K.bin", "rb");
+    if (!uwaData->fp) {
+        perror("Failed to open UWA data file");
+        exit(1);
+    }
     uwaData->pageBuffer = (int8_t*)calloc(1, 512);
     uwaData->pageRecord = 0;
 
     seaData = (DataSource*)malloc(sizeof(DataSource));
-    seaData->fp = fopen("data/sea100K.bin", "rb");
+    seaData->fp = fopen(PROJECT_DIR "data/sea100K.bin", "rb");
+    //seaData->fp = fopen("data/sea100K.bin", "rb");
+    if (!seaData->fp) {
+        perror("Failed to open SEA data file");
+        exit(1);
+    }
     seaData->pageBuffer = (int8_t*)calloc(1, 512);
     seaData->pageRecord = 0;
 }
@@ -194,6 +207,11 @@ void test_projection() {
     uint8_t projCols[] = {0, 1, 3};
     embedDBOperator* projOp = createProjectionOperator(scanOp, 3, projCols);
     projOp->init(projOp);
+    //
+    if (!projOp || !projOp->init) {
+        fprintf(stderr, "ERROR: Projection operator or init function is NULL\n");
+        exit(1);
+    }
 
     TEST_ASSERT_EQUAL_UINT8_MESSAGE(3, projOp->schema->numCols, "Output schema has wrong number of columns");
     int8_t expectedColSizes[] = {4, -4, -4};
@@ -204,6 +222,10 @@ void test_projection() {
     while (exec(projOp)) {
         recordsReturned++;
         int32_t* expectedRecord = (int32_t*)nextRecord(uwaData);
+        if (!expectedRecord) {
+            printf("End of UWA data reached unexpectedly\n");
+            break;  // or handle appropriately
+        }
         TEST_ASSERT_EQUAL_UINT32_MESSAGE(expectedRecord[0], recordBuffer[0], "First column is wrong");
         TEST_ASSERT_EQUAL_UINT32_MESSAGE(expectedRecord[1], recordBuffer[1], "Second column is wrong");
         TEST_ASSERT_EQUAL_UINT32_MESSAGE(expectedRecord[3], recordBuffer[2], "Third column is wrong");
@@ -236,8 +258,16 @@ void test_selection() {
     while (exec(projOp)) {
         recordsReturned++;
         int32_t* expectedRecord = (int32_t*)nextRecord(uwaData);
+        if (!expectedRecord) {
+            printf("End of UWA data reached unexpectedly\n");
+            break;  // or handle appropriately
+        }
         while (expectedRecord[1] > maxTemp || expectedRecord[3] < selVal) {
             expectedRecord = (int32_t*)nextRecord(uwaData);
+            if (!expectedRecord) {
+                printf("End of UWA data reached unexpectedly\n");
+                break;  // or handle appropriately
+            }
         }
         TEST_ASSERT_EQUAL_UINT32_MESSAGE(expectedRecord[0], recordBuffer[0], "First column is wrong");
         TEST_ASSERT_EQUAL_UINT32_MESSAGE(expectedRecord[1], recordBuffer[1], "Second column is wrong");
@@ -277,8 +307,16 @@ void test_aggregate() {
     while (exec(aggOp)) {
         recordsReturned++;
         int32_t* expectedRecord = (int32_t*)nextRecord(uwaData);
+        if (!expectedRecord) {
+            printf("End of UWA data reached unexpectedly\n");
+            break;  // or handle appropriately
+        }
         while (expectedRecord[3] < selVal) {
             expectedRecord = (int32_t*)nextRecord(uwaData);
+            if (!expectedRecord) {
+                printf("End of UWA data reached unexpectedly\n");
+                break;  // or handle appropriately
+            }
         }
         uint32_t firstInGroupDay = dayGroup(expectedRecord);
         uint32_t day = 0;
@@ -297,8 +335,16 @@ void test_aggregate() {
                 minTmp = expectedRecord[1];
             }
             expectedRecord = (int32_t*)nextRecord(uwaData);
+            if (!expectedRecord) {
+                printf("End of UWA data reached unexpectedly\n");
+                break;  // or handle appropriately
+            }
             while (expectedRecord[3] < selVal) {
                 expectedRecord = (int32_t*)nextRecord(uwaData);
+                if (!expectedRecord) {
+                    printf("End of UWA data reached unexpectedly\n");
+                    break;  // or handle appropriately
+                }
                 if (expectedRecord == NULL) {
                     goto done;
                 }
@@ -351,6 +397,10 @@ void test_join() {
     shift->init = customShiftInit;
     shift->next = customShiftNext;
     shift->close = customShiftClose;
+
+    //
+    shift->init(shift); 
+
 
     // Prepare sea table
     embedDBOperator* scan2 = createTableScanOperator(stateSEA, &it2, baseSchema);
@@ -432,6 +482,7 @@ void insertData(embedDBState* state, const char* filename) {
     int numRecords = 0;
     while (fread(fileBuffer, state->pageSize, 1, fp)) {
         uint16_t count = EMBEDDB_GET_COUNT(fileBuffer);
+        printf("Page read: %d records\n", count);
         for (int i = 1; i <= count; i++) {
             embedDBPut(state, fileBuffer + i * state->recordSize, fileBuffer + i * state->recordSize + state->keySize);
             numRecords++;
@@ -443,15 +494,24 @@ void insertData(embedDBState* state, const char* filename) {
 
 void* nextRecord(DataSource* source) {
     uint16_t count = EMBEDDB_GET_COUNT(source->pageBuffer);
+
     if (count <= source->pageRecord) {
         // Read next page
         if (!fread(source->pageBuffer, 512, 1, source->fp)) {
             return NULL;
         }
+
+        count = EMBEDDB_GET_COUNT(source->pageBuffer);  // re-fetch count from new page
+        if (count == 0) {
+            return NULL;  // SAFETY: don't proceed if page has zero records
+        }
+
         source->pageRecord = 0;
     }
+
     return source->pageBuffer + ++source->pageRecord * 16;
 }
+
 
 uint32_t dayGroup(const void* record) {
     // find the epoch day
@@ -469,12 +529,23 @@ void writeDayGroup(embedDBAggregateFunc* aggFunc, embedDBSchema* schema, void* r
 }
 
 void customShiftInit(embedDBOperator* op) {
-    op->input->init(op->input);
+    if (!op || !op->input || !op->input->init) {
+        fprintf(stderr, "ERROR: Invalid input operator or init function is NULL in customShiftInit\n");
+        exit(1);
+    }
+
+    op->input->init(op->input);  // only call after null checks
     op->schema = copySchema(op->input->schema);
     op->recordBuffer = malloc(16);
 }
 
+
 int8_t customShiftNext(embedDBOperator* op) {
+    if (!op || !op->input || !op->input->next) {
+        fprintf(stderr, "ERROR: Invalid input operator or next function is NULL in customShiftNext\n");
+        exit(1);
+    }
+
     if (op->input->next(op->input)) {
         memcpy(op->recordBuffer, op->input->recordBuffer, 16);
         *(uint32_t*)op->recordBuffer += 473385600;  // Add the number of seconds between 2000 and 2015
@@ -482,6 +553,7 @@ int8_t customShiftNext(embedDBOperator* op) {
     }
     return 0;
 }
+
 
 void customShiftClose(embedDBOperator* op) {
     op->input->close(op->input);

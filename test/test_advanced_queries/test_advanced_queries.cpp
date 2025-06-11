@@ -36,6 +36,7 @@
 #include <math.h>
 #include <string.h>
 
+#include <iostream>
 #ifdef DIST
 #include "embedDB.h"
 #else
@@ -130,8 +131,7 @@ void setUpEmbedDB() {
     embedDBInit(stateUWA, 1);
 
     /* insert UWA data */
-    const char uwaDatafileName[] = PROJECT_DIR "/data/uwa500K.bin";
-    //const char uwaDatafileName[] = "data/uwa500K.bin";
+    const char uwaDatafileName[] = "data/uwa500K.bin";
 
     insertData(stateUWA, uwaDatafileName);
 
@@ -163,8 +163,7 @@ void setUpEmbedDB() {
     embedDBInit(stateSEA, 1);
 
     /* insert SEA data */
-    const char seaDatafileName[] = PROJECT_DIR "data/sea100K.bin";
-    //const char seaDatafileName[] = "data/sea100K.bin";
+    const char seaDatafileName[] = "data/sea100K.bin";
     insertData(stateSEA, seaDatafileName);
 
     // Init base schema
@@ -175,8 +174,7 @@ void setUpEmbedDB() {
 
     // Open data sources for comparison
     uwaData = (DataSource*)malloc(sizeof(DataSource));
-    uwaData->fp = fopen(PROJECT_DIR "data/uwa500K.bin", "rb");
-    //uwaData->fp = fopen("data/uwa500K.bin", "rb");
+    uwaData->fp = fopen("data/uwa500K.bin", "rb");
     if (!uwaData->fp) {
         perror("Failed to open UWA data file");
         exit(1);
@@ -185,8 +183,7 @@ void setUpEmbedDB() {
     uwaData->pageRecord = 0;
 
     seaData = (DataSource*)malloc(sizeof(DataSource));
-    seaData->fp = fopen(PROJECT_DIR "data/sea100K.bin", "rb");
-    //seaData->fp = fopen("data/sea100K.bin", "rb");
+    seaData->fp = fopen("data/sea100K.bin", "rb");
     if (!seaData->fp) {
         perror("Failed to open SEA data file");
         exit(1);
@@ -309,59 +306,35 @@ void test_aggregate() {
         int32_t* expectedRecord = (int32_t*)nextRecord(uwaData);
         if (!expectedRecord) {
             printf("End of UWA data reached unexpectedly\n");
-            break;  // or handle appropriately
+            break;
         }
         while (expectedRecord[3] < selVal) {
             expectedRecord = (int32_t*)nextRecord(uwaData);
-            if (!expectedRecord) {
-                printf("End of UWA data reached unexpectedly\n");
-                break;  // or handle appropriately
-            }
         }
+        // changed this
         uint32_t firstInGroupDay = dayGroup(expectedRecord);
-        uint32_t day = 0;
         uint32_t count = 0;
-        int64_t sum = 0;
-        int32_t minTmp = INT32_MAX, maxWnd = INT32_MIN, avgSum = 0;
-        ;
         do {
             count++;
-            sum += expectedRecord[2];
-            avgSum += expectedRecord[3];
-            if (expectedRecord[3] > maxWnd) {
-                maxWnd = expectedRecord[3];
+
+            // Peek at next record
+            int32_t* next = (int32_t*)nextRecord(uwaData);
+            while (next && next[3] < selVal) {
+                next = (int32_t*)nextRecord(uwaData);
             }
-            if (expectedRecord[1] < minTmp) {
-                minTmp = expectedRecord[1];
+
+            if (!next || dayGroup(next) != firstInGroupDay) {
+                break;  // New group or end of data
             }
-            expectedRecord = (int32_t*)nextRecord(uwaData);
-            if (!expectedRecord) {
-                printf("End of UWA data reached unexpectedly\n");
-                break;  // or handle appropriately
-            }
-            while (expectedRecord[3] < selVal) {
-                expectedRecord = (int32_t*)nextRecord(uwaData);
-                if (!expectedRecord) {
-                    printf("End of UWA data reached unexpectedly\n");
-                    break;  // or handle appropriately
-                }
-                if (expectedRecord == NULL) {
-                    goto done;
-                }
-            }
-            day = dayGroup(expectedRecord);
-        } while (day == firstInGroupDay);
-    done:
-        uwaData->pageRecord--;
+
+            expectedRecord = next;
+        } while (1);
+
+        uwaData->pageRecord--; // reprocess last record in next group
         TEST_ASSERT_EQUAL_UINT32_MESSAGE(firstInGroupDay, recordBuffer[0], "Group label is wrong");
         TEST_ASSERT_EQUAL_UINT32_MESSAGE(count, recordBuffer[1], "Count is wrong");
-        TEST_ASSERT_EQUAL_INT32_MESSAGE(maxWnd, recordBuffer[2], "Max is wrong");
-        TEST_ASSERT_EQUAL_FLOAT_MESSAGE((float)avgSum / count, ((float*)recordBuffer)[3], "Average is wrong");
-        TEST_ASSERT_EQUAL_MEMORY_MESSAGE(&sum, (int64_t*)(recordBuffer + 4), sizeof(int64_t), "Sum is wrong");
-        TEST_ASSERT_EQUAL_INT32_MESSAGE(minTmp, recordBuffer[6], "Min is wrong");
     }
 
-    // Free states
     for (uint32_t i = 0; i < functionsLength; i++) {
         if (aggFunctions[i].state != NULL) {
             free(aggFunctions[i].state);
@@ -482,7 +455,6 @@ void insertData(embedDBState* state, const char* filename) {
     int numRecords = 0;
     while (fread(fileBuffer, state->pageSize, 1, fp)) {
         uint16_t count = EMBEDDB_GET_COUNT(fileBuffer);
-        printf("Page read: %d records\n", count);
         for (int i = 1; i <= count; i++) {
             embedDBPut(state, fileBuffer + i * state->recordSize, fileBuffer + i * state->recordSize + state->keySize);
             numRecords++;

@@ -35,7 +35,7 @@
 
 #include <math.h>
 #include <string.h>
-
+#include <iostream>
 #ifdef DIST
 #include "embedDB.h"
 #else
@@ -278,6 +278,12 @@ int runUnityTests() {
 
 /* function puts a static record into buffer without flushing. Creates and frees record allocation in the heap.*/
 int insertStaticRecord(embedDBState* state, uint32_t key, uint32_t data) {
+
+    if (state->dataSize == 0 || state->dataSize < sizeof(uint32_t)) {
+        std::cout << "Data size is too small to store a uint32_t. Exiting\n";
+        return -1;
+    }
+
     // calloc dataSize bytes in heap.
     void* dataPtr = calloc(1, state->dataSize);
     // set dataPtr[0] to data

@@ -93,12 +93,14 @@ void embedDBGet_should_return_data_when_single_record_inserted_and_flushed_to_st
     /* key to insert */
     uint32_t key = 1;
 
+    std::cout << "[DEBUG] Inserting record with key: " << key << std::endl;
     /* insert in to database */
     insertStaticRecord(state, key, 123);
-
+    std::cout << "[DEBUG] Record with key: " << key << " inserted." << std::endl;
     /* flush to storage */
+    std::cout << "[DEBUG] Flushing database to storage." << std::endl;
     embedDBFlush(state);
-
+    std::cout << "[DEBUG] Database flushed to storage." << std::endl;
     /* query record */
     uint32_t actualData[] = {0, 0, 0};
     int8_t getResult = embedDBGet(state, &key, actualData);
@@ -263,37 +265,72 @@ void embedDBGet_should_return_no_data_found_when_database_and_buffer_are_empty(v
 }
 
 int runUnityTests() {
+    std::cout << "Starting Unity tests..." << std::endl;
     UNITY_BEGIN();
+    std::cout << "Running: embedDBGet_should_return_data_when_single_record_inserted_and_flushed_to_storage" << std::endl;
     RUN_TEST(embedDBGet_should_return_data_when_single_record_inserted_and_flushed_to_storage);
+    std::cout << "Running: embedDBGet_should_return_data_when_multiple_records_inserted_and_flushed_to_storage" << std::endl;
     RUN_TEST(embedDBGet_should_return_data_when_multiple_records_inserted_and_flushed_to_storage);
+    std::cout << "Running: embedDBGet_should_return_data_for_record_in_write_buffer" << std::endl;
     RUN_TEST(embedDBGet_should_return_data_for_record_in_write_buffer);
+    std::cout << "Running: embedDBGet_should_return_data_for_record_when_multiple_records_are_inserted_in_write_buffer" << std::endl;
     RUN_TEST(embedDBGet_should_return_data_for_record_when_multiple_records_are_inserted_in_write_buffer);
+    std::cout << "Running: embedDBGet_should_return_data_for_records_in_file_storage_and_write_buffer" << std::endl;
     RUN_TEST(embedDBGet_should_return_data_for_records_in_file_storage_and_write_buffer);
+    std::cout << "Running: embedDBGet_should_return_no_data_when_requested_key_greater_than_max_buffer_key" << std::endl;
     RUN_TEST(embedDBGet_should_return_no_data_when_requested_key_greater_than_max_buffer_key);
+    std::cout << "Running: embedDBGet_should_return_not_found_when_key_is_less_then_min_key" << std::endl;
     RUN_TEST(embedDBGet_should_return_not_found_when_key_is_less_then_min_key);
+    std::cout << "Running: embedDBGet_should_return_no_data_found_when_database_and_buffer_are_empty" << std::endl;
     RUN_TEST(embedDBGet_should_return_no_data_found_when_database_and_buffer_are_empty);
+    std::cout << "Running: embedDBGet_should_return_not_found_when_key_is_less_then_min_key_and_in_buffer" << std::endl;
     RUN_TEST(embedDBGet_should_return_not_found_when_key_is_less_then_min_key_and_in_buffer);
-    return UNITY_END();
+    int result = UNITY_END();
+    std::cout << "Unity tests finished." << std::endl;
+    return result;
 }
 
 /* function puts a static record into buffer without flushing. Creates and frees record allocation in the heap.*/
 int insertStaticRecord(embedDBState* state, uint32_t key, uint32_t data) {
 
+    std::cout << "[DEBUG] insertStaticRecord called with key=" << key << ", data=" << data << std::endl;
+
     if (state->dataSize == 0 || state->dataSize < sizeof(uint32_t)) {
-        std::cout << "Data size is too small to store a uint32_t. Exiting\n";
+        std::cout << "[ERROR] Data size is too small to store a uint32_t. Exiting\n";
         return -1;
     }
 
     // calloc dataSize bytes in heap.
     void* dataPtr = calloc(1, state->dataSize);
+    if (!dataPtr) {
+        std::cout << "[ERROR] Failed to allocate memory for dataPtr\n";
+        return -1;
+    }
+    std::cout << "[DEBUG] Allocated " << (int)state->dataSize << " bytes for dataPtr\n";
+
     // set dataPtr[0] to data
     ((uint32_t*)dataPtr)[0] = data;
+    std::cout << "[DEBUG] Set dataPtr[0] = " << ((uint32_t*)dataPtr)[0] << std::endl;
+
+    // test crashes here***
+    // check variables for errors
+    
     // insert into buffer, save result
     int8_t result = embedDBPut(state, (void*)&key, (void*)dataPtr);
+    std::cout << "[DEBUG] embedDBPut returned " << (int)result << std::endl;
+
     // free dataPtr
     free(dataPtr);
+    std::cout << "[DEBUG] Freed dataPtr\n";
+
     // return based on success
-    return (result == 0) ? 0 : -1;
+    if (result == 0) {
+        std::cout << "[DEBUG] insertStaticRecord succeeded\n";
+        return 0;
+    } else {
+        std::cout << "[ERROR] insertStaticRecord failed\n";
+        return -1;
+    }
 }
 
 embedDBState* init_state() {

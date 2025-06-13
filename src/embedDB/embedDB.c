@@ -1002,100 +1002,135 @@ void indexPage(embedDBState *state, uint32_t pageNumber) {
  * @param	data	Data for record
  * @return	Return 0 if success. Non-zero value if error.
  */
+/**
+ * @brief Inserts a new key-data record into the EmbedDB buffer, handling
+ * things like ordering, buffer limits, indexing, variable data, and min/max tracking.
+ *
+ * @param state Pointer to the database state/configuration.
+ * @param key   Pointer to the key to insert (must be in ascending order).
+ * @param data  Pointer to the data to store with the key.
+ * @return      0 on success, 1 if insertion fails due to out-of-order keys,
+ *              or a result from writing the page (if record-level consistency is used).
+ */
 int8_t embedDBPut(embedDBState *state, void *key, void *data) {
-    /* Copy record into block */
-
+    //printf("embedDBPut called");
+    // Get how many records are already in the current write buffer
     count_t count = EMBEDDB_GET_COUNT(state->buffer);
+
+    // Check if this isn't the very first insert ever, or if there are already records in the buffer
     if (state->nextDataPageId > 0 || count > 0) {
         void *previousKey = NULL;
+
+        // If the current buffer is empty, load the last written data page to compare its last key
         if (count == 0) {
             readPage(state, (state->nextDataPageId - 1) % state->numDataPages);
+
             previousKey = ((int8_t *)state->buffer + state->pageSize * EMBEDDB_DATA_READ_BUFFER) +
                           (state->recordSize * (state->maxRecordsPerPage - 1)) + state->headerSize;
         } else {
+            // Otherwise, just grab the last key from the current buffer
             previousKey = (int8_t *)state->buffer + (state->recordSize * (count - 1)) + state->headerSize;
         }
+
+        // Make sure the new key is strictly larger than the previous one
         if (state->compareKey(key, previousKey) != 1) {
 #ifdef PRINT_ERRORS
             printf("Keys must be strictly ascending order. Insert Failed.\n");
 #endif
-            return 1;
+            return 1;  // Fail if not in strictly increasing order
         }
     }
 
-    /* Write current page if full */
+    // If the page is full, write it to storage and start a new one
     bool wrotePage = false;
     if (count >= state->maxRecordsPerPage) {
-        // As the first buffer is the data write buffer, no manipulation is required
+        // Write the buffer to disk
         id_t pageNum = writePage(state, state->buffer);
 
+        // Add the page to the index
         indexPage(state, pageNum);
 
-        /* Save record in index file */
+        // If indexing is enabled
         if (state->indexFile != NULL) {
+            // Get pointer to the index write buffer
             void *buf = (int8_t *)state->buffer + state->pageSize * (EMBEDDB_INDEX_WRITE_BUFFER);
-            count_t idxcount = EMBEDDB_GET_COUNT(buf);
-            if (idxcount >= state->maxIdxRecordsPerPage) {
-                /* Save index page */
-                writeIndexPage(state, buf);
 
+            // Get current count of index entries
+            count_t idxcount = EMBEDDB_GET_COUNT(buf);
+
+            // If the index page is full, write it to storage and reset
+            if (idxcount >= state->maxIdxRecordsPerPage) {
+                writeIndexPage(state, buf);
                 idxcount = 0;
                 initBufferPage(state, EMBEDDB_INDEX_WRITE_BUFFER);
 
-                /* Add page id to minimum value spot in page */
+                // Store the page number in a special spot
                 id_t *ptr = (id_t *)((int8_t *)buf + 8);
                 *ptr = pageNum;
             }
 
+            // Increase count on index page
             EMBEDDB_INC_COUNT(buf);
 
-            /* Copy record onto index page */
+            // Copy the bitmap from the data buffer into the index page
             void *bm = EMBEDDB_GET_BITMAP(state->buffer);
-            memcpy((void *)((int8_t *)buf + EMBEDDB_IDX_HEADER_SIZE + state->bitmapSize * idxcount), bm, state->bitmapSize);
+            memcpy((void *)((int8_t *)buf + EMBEDDB_IDX_HEADER_SIZE + state->bitmapSize * idxcount),
+                   bm, state->bitmapSize);
         }
 
+        // Update any error tracking for this page
         updateMaxiumError(state, state->buffer);
 
+        // Reset the record count and clear the data buffer
         count = 0;
         initBufferPage(state, 0);
         wrotePage = true;
     }
 
-    /* Copy record onto page */
-    memcpy((int8_t *)state->buffer + (state->recordSize * count) + state->headerSize, key, state->keySize);
-    memcpy((int8_t *)state->buffer + (state->recordSize * count) + state->headerSize + state->keySize, data, state->dataSize);
+    // Copy the key into the buffer at the next record slot
+    memcpy((int8_t *)state->buffer + (state->recordSize * count) + state->headerSize,
+           key, state->keySize);
 
-    /* Copy variable data offset if using variable data*/
+    // Copy the data into the buffer after the key
+    memcpy((int8_t *)state->buffer + (state->recordSize * count) + state->headerSize + state->keySize,
+           data, state->dataSize);
+
+    // If the database uses variable-sized data, store the offset (or a special constant if not used)
     if (EMBEDDB_USING_VDATA(state->parameters)) {
         uint32_t dataLocation;
         if (state->recordHasVarData) {
+            // Calculate location within variable data space
             dataLocation = state->currentVarLoc % (state->numVarPages * state->pageSize);
         } else {
             dataLocation = EMBEDDB_NO_VAR_DATA;
         }
-        memcpy((int8_t *)state->buffer + (state->recordSize * count) + state->headerSize + state->keySize + state->dataSize, &dataLocation, sizeof(uint32_t));
+
+        // Write that offset after the fixed-size key and data
+        memcpy((int8_t *)state->buffer + (state->recordSize * count) + state->headerSize + state->keySize + state->dataSize,
+               &dataLocation, sizeof(uint32_t));
     }
 
-    /* Update count */
+    // Increase the record count in the buffer
     EMBEDDB_INC_COUNT(state->buffer);
 
+    // If using min/max tracking, update those values
     if (EMBEDDB_USING_MAX_MIN(state->parameters)) {
-        /* Update MIN/MAX */
         void *ptr;
+
         if (count != 0) {
-            /* Since keys are inserted in ascending order, every insert will
-             * update max. Min will never change after first record. */
+            // Not the first record — update max key, and possibly update min/max data
             ptr = EMBEDDB_GET_MAX_KEY(state->buffer, state);
             memcpy(ptr, key, state->keySize);
 
             ptr = EMBEDDB_GET_MIN_DATA(state->buffer, state);
             if (state->compareData(data, ptr) < 0)
                 memcpy(ptr, data, state->dataSize);
+
             ptr = EMBEDDB_GET_MAX_DATA(state->buffer, state);
             if (state->compareData(data, ptr) > 0)
                 memcpy(ptr, data, state->dataSize);
         } else {
-            /* First record inserted */
+            // First record — just set everything
             ptr = EMBEDDB_GET_MIN_KEY(state->buffer);
             memcpy(ptr, key, state->keySize);
             ptr = EMBEDDB_GET_MAX_KEY(state->buffer, state);
@@ -1108,29 +1143,32 @@ int8_t embedDBPut(embedDBState *state, void *key, void *data) {
         }
     }
 
+    // If using bitmap summarization, update it using the record's data
     if (EMBEDDB_USING_BMAP(state->parameters)) {
-        /* Update bitmap */
         char *bm = (char *)EMBEDDB_GET_BITMAP(state->buffer);
         state->updateBitmap(data, bm);
     }
 
-    /* If using record level consistency, we need to immediately write the updated page to storage */
+    // If the system requires immediate write after each insert (for consistency)
     if (EMBEDDB_USING_RECORD_LEVEL_CONSISTENCY(state->parameters)) {
-        /* Need to move record level consistency pointers if on a block boundary */
+        // If we just wrote a page and are at an erase boundary, move memory blocks for wear leveling
         if (wrotePage && state->nextDataPageId % state->eraseSizeInPages == 0) {
-            /* move record-level consistency blocks */
             shiftRecordLevelConsistencyBlocks(state);
         }
+
+        // Write the buffer to a temporary page on disk
         return writeTemporaryPage(state, state->buffer);
     }
-    
-    
-    if(state->rules != NULL && state->numRules > 0 && state->rules[0] != NULL){
+
+    // If there are active rules (like filters or triggers), run them
+    if (state->rules != NULL && state->numRules > 0 && state->rules[0] != NULL) {
         executeRules(state, key, data);
     }
 
+    // Return success
     return 0;
 }
+
 
 int8_t shiftRecordLevelConsistencyBlocks(embedDBState *state) {
     /* erase the record-level consistency blocks */

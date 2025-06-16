@@ -35,7 +35,6 @@
 
 #include <math.h>
 #include <string.h>
-#include <iostream>
 #ifdef DIST
 #include "embedDB.h"
 #else
@@ -76,7 +75,7 @@ void setupEmbedDB() {
     state->keySize = 4;
     state->dataSize = 4;
     state->pageSize = 512;
-    state->bufferSizeInBlocks = 6;
+    state->bufferSizeInBlocks = 2;
     state->numSplinePoints = 8;
     state->buffer = malloc(state->bufferSizeInBlocks * state->pageSize);
     TEST_ASSERT_NOT_NULL_MESSAGE(state->buffer, "Failed to allocate buffer for EmbedDB.");
@@ -130,9 +129,6 @@ void embedDB_initial_configuration_is_correct() {
 void embedDB_put_inserts_single_record_correctly() {
     uint32_t key = 15648;
     int32_t data = 27335;
-    // check that buffer is not null
-    TEST_ASSERT_NOT_NULL_MESSAGE(state->buffer, "EmbedDB buffer was not initialized correctly.");
-    std::cout << "[DEBUG] Buffer size: " << state->bufferSizeInBlocks * state->pageSize << std::endl;
     int8_t result = embedDBPut(state, &key, &data);
     TEST_ASSERT_EQUAL_INT8_MESSAGE(0, result, "embedDBPut did not correctly insert data (returned non-zero code)");
     TEST_ASSERT_EQUAL_UINT32_MESSAGE(0, state->nextDataPageId, "embedDBPut incremented next page to write and it should not have.");
@@ -249,21 +245,13 @@ void embedDBFlush_does_not_write_when_nothing_in_buffer() {
 
 int runUnityTests(void) {
     UNITY_BEGIN();
-    std::cout << "[DEBUG] Running: embedDB_initial_configuration_is_correct..." << std::endl;
     RUN_TEST(embedDB_initial_configuration_is_correct); // This one passes
-    std::cout << "[DEBUG] Running: embedDB_put_inserts_single_record_correctly..." << std::endl;
     RUN_TEST(embedDB_put_inserts_single_record_correctly);
-    std::cout << "[DEBUG] Running: embedDB_put_inserts_eleven_records_correctly..." << std::endl;
     RUN_TEST(embedDB_put_inserts_eleven_records_correctly);
-    std::cout << "[DEBUG] Running: embedDB_put_inserts_one_page_of_records_correctly..." << std::endl;
     RUN_TEST(embedDB_put_inserts_one_page_of_records_correctly);
-    std::cout << "[DEBUG] Running: embedDB_put_inserts_one_more_than_one_page_of_records_correctly..." << std::endl;
     RUN_TEST(embedDB_put_inserts_one_more_than_one_page_of_records_correctly);
-    std::cout << "[DEBUG] Running: iteratorReturnsCorrectRecords..." << std::endl;
     RUN_TEST(iteratorReturnsCorrectRecords);
-    std::cout << "[DEBUG] Running: embedDBFlush_does_not_write_when_nothing_in_buffer..." << std::endl;
     RUN_TEST(embedDBFlush_does_not_write_when_nothing_in_buffer);
-    std::cout << "[DEBUG] All tests completed." << std::endl;
     return UNITY_END();
 }
 
@@ -280,7 +268,6 @@ void loop() {}
 #else
 
 int main() {
-    std::cout << "Running EmbedDB tests..." << std::endl;
     return runUnityTests();
 }
 

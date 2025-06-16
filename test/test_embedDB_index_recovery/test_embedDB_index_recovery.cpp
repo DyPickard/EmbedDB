@@ -84,6 +84,11 @@ void setupEmbedDB() {
     state->dataFile = setupFile(DATA_FILE_PATH);
     state->indexFile = setupFile(INDEX_FILE_PATH);
 
+    // Set active rules
+    #define MAX_RULES 0
+    state->rules = (activeRule**)calloc(MAX_RULES, sizeof(activeRule*));
+    state->numRules = 0;
+
     state->numDataPages = 10000;
     state->eraseSizeInPages = 2;
     state->numIndexPages = 4;

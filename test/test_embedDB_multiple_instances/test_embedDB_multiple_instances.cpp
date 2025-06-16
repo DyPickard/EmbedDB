@@ -92,6 +92,12 @@ void setupembedDBInstanceKeySize4DataSize4(embedDBState *state, int number) {
     state->parameters = EMBEDDB_RESET_DATA;
     state->eraseSizeInPages = 4;
     state->fileInterface = getFileInterface();
+
+    // Set active rules
+    #define MAX_RULES 0
+    state->rules = (activeRule**)calloc(MAX_RULES, sizeof(activeRule*));
+    state->numRules = 0;
+
     char dataPath[40];
     snprintf(dataPath, 40, DATA_FILE_PATH, number);
     state->dataFile = setupFile(dataPath);

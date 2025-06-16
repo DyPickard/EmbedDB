@@ -113,6 +113,10 @@ void initState(uint32_t dataSize) {
     state->buildBitmapFromRange = buildBitmapInt8FromRange;
     state->compareKey = int32Comparator;
     state->compareData = int32Comparator;
+    // Set active rules
+    #define MAX_RULES 0
+    state->rules = (activeRule**)calloc(MAX_RULES, sizeof(activeRule*));
+    state->numRules = 0;
     embedDBResetStats(state);
 }
 
@@ -123,6 +127,7 @@ void resetState() {
     tearDownFile(state->varFile);
     free(state->buffer);
     free(state->fileInterface);
+    free(state->rules);
     free(state);
 
     state = NULL;

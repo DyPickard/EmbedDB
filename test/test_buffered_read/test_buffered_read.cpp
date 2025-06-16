@@ -85,6 +85,7 @@ void tearDown(void) {
     tearDownFile(state->dataFile);
     tearDownFile(state->indexFile);
     free(state->fileInterface);
+    free(state->rules);
     free(state);
     state = NULL;
 }
@@ -337,6 +338,11 @@ embedDBState* init_state() {
 
     int8_t result = embedDBInit(state, 1);
     TEST_ASSERT_EQUAL_INT8_MESSAGE(0, result, "EmbedDB did not initialize correctly.");
+
+    // Set active rules
+    #define MAX_RULES 0
+    state->rules = (activeRule**)calloc(MAX_RULES, sizeof(activeRule*));
+    state->numRules = 0;
 
     return state;
 }

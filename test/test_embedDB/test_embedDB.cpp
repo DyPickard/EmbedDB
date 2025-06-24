@@ -35,7 +35,6 @@
 
 #include <math.h>
 #include <string.h>
-
 #ifdef DIST
 #include "embedDB.h"
 #else
@@ -84,6 +83,10 @@ void setupEmbedDB() {
     state->parameters = EMBEDDB_RESET_DATA;
     state->eraseSizeInPages = 4;
 
+    #define MAX_RULES 0
+    state->rules = (activeRule**)calloc(MAX_RULES, sizeof(activeRule*));
+    state->numRules = 0;
+
     /* setup data file for EmbedDB */
     state->fileInterface = getFileInterface();
     char dataPath[] = DATA_PATH;
@@ -104,6 +107,7 @@ void tearDown(void) {
     embedDBClose(state);
     tearDownFile(state->dataFile);
     free(state->fileInterface);
+    free(state->rules);
     free(state);
 }
 
@@ -241,7 +245,7 @@ void embedDBFlush_does_not_write_when_nothing_in_buffer() {
 
 int runUnityTests(void) {
     UNITY_BEGIN();
-    RUN_TEST(embedDB_initial_configuration_is_correct);
+    RUN_TEST(embedDB_initial_configuration_is_correct); // This one passes
     RUN_TEST(embedDB_put_inserts_single_record_correctly);
     RUN_TEST(embedDB_put_inserts_eleven_records_correctly);
     RUN_TEST(embedDB_put_inserts_one_page_of_records_correctly);

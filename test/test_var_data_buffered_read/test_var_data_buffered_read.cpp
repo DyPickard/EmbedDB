@@ -84,6 +84,7 @@ void tearDown() {
     tearDownFile(state->varFile);
     free(state->buffer);
     free(state->fileInterface);
+    free(state->rules);
     free(state);
     state = NULL;
 }
@@ -471,6 +472,11 @@ embedDBState *init_state() {
     state->dataFile = setupFile(dataPath);
     state->indexFile = setupFile(indexPath);
     state->varFile = setupFile(varPath);
+
+    // Set active rules
+    #define MAX_RULES 0
+    state->rules = (activeRule**)calloc(MAX_RULES, sizeof(activeRule*));
+    state->numRules = 0;
 
     // configure state
     state->parameters = EMBEDDB_USE_BMAP | EMBEDDB_USE_INDEX | EMBEDDB_USE_VDATA | EMBEDDB_RESET_DATA;  // Setup for data and bitmap comparison functions */

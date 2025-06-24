@@ -329,6 +329,12 @@ void setupembedDBInstanceKeySize4DataSize12WithVarData(embedDBState *state, uint
     state->buildBitmapFromRange = buildBitmapInt8FromRange;
     state->compareKey = int32Comparator;
     state->compareData = int32Comparator;
+    
+    // Set active rules
+    #define MAX_RULES 0
+    state->rules = (activeRule**)calloc(MAX_RULES, sizeof(activeRule*));
+    state->numRules = 0;
+
     int8_t result = embedDBInit(state, 1);
     TEST_ASSERT_EQUAL_INT8_MESSAGE(0, result, "embedDB init did not return zero when initializing state.");
 }

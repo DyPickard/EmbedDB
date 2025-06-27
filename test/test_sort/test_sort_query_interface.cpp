@@ -119,7 +119,7 @@ void runTestSequentialValues() {
         TEST_FAIL_MESSAGE("There was an error setting up the state of the UWA dataset.");
     }
 
-    int8_t colSizes[] = {4, 4};
+    int8_t colSizes[] = {4, 12};
     int8_t colSignedness[] = {embedDB_COLUMN_UNSIGNED, embedDB_COLUMN_UNSIGNED};
     embedDBSchema* baseSchema = embedDBCreateSchema(2, colSizes, colSignedness);
 
@@ -136,7 +136,6 @@ void runTestSequentialValues() {
     embedDBOperator* scanOpOrderBy = createTableScanOperator(stateUWA, &it, baseSchema);
     uint8_t projColsOB[] = {0,1};
     embedDBOperator* projColsOrderBy = createProjectionOperator(scanOpOrderBy, 2, projColsOB);
-    //embedDBOperator* orderByOp = createOrderByOperator(stateUWA, projColsOrderBy, 1, merge_sort_int32_comparator);
     embedDBOperator* orderByOp = createOrderByOperator(stateUWA, projColsOrderBy, 1, -1, int32Comparator);
     orderByOp->init(orderByOp);
     int32_t* recordBuffer = (int32_t*)orderByOp->recordBuffer;
@@ -212,7 +211,6 @@ void runTestUsingUWA500k() {
     embedDBOperator* scanOpOrderBy = createTableScanOperator(stateUWA, &it, baseSchema);
     uint8_t projColsOB[] = {0,1};
     embedDBOperator* projColsOrderBy = createProjectionOperator(scanOpOrderBy, 2, projColsOB);
-    //embedDBOperator* orderByOp = createOrderByOperator(stateUWA, projColsOrderBy, 1, merge_sort_int32_comparator);
     embedDBOperator* orderByOp = createOrderByOperator(stateUWA, projColsOrderBy, 1, -1, int32Comparator);
     orderByOp->init(orderByOp);
     int32_t* recordBuffer = (int32_t*)orderByOp->recordBuffer;

@@ -37,6 +37,11 @@
 
 #endif
 
+
+void setUp() {}
+
+void tearDown() {}
+
 void insertData(embedDBState* state, const char* filename) {
     FILE_TYPE* fp = fopen(filename, "rb");
     char fileBuffer[512];
@@ -131,7 +136,8 @@ void runTestSequentialValues() {
     embedDBOperator* scanOpOrderBy = createTableScanOperator(stateUWA, &it, baseSchema);
     uint8_t projColsOB[] = {0,1};
     embedDBOperator* projColsOrderBy = createProjectionOperator(scanOpOrderBy, 2, projColsOB);
-    embedDBOperator* orderByOp = createOrderByOperator(stateUWA, projColsOrderBy, 1, merge_sort_int32_comparator);
+    //embedDBOperator* orderByOp = createOrderByOperator(stateUWA, projColsOrderBy, 1, merge_sort_int32_comparator);
+    embedDBOperator* orderByOp = createOrderByOperator(stateUWA, projColsOrderBy, 1, -1, int32Comparator);
     orderByOp->init(orderByOp);
     int32_t* recordBuffer = (int32_t*)orderByOp->recordBuffer;
     uint32_t previous = 0;
@@ -206,7 +212,8 @@ void runTestUsingUWA500k() {
     embedDBOperator* scanOpOrderBy = createTableScanOperator(stateUWA, &it, baseSchema);
     uint8_t projColsOB[] = {0,1};
     embedDBOperator* projColsOrderBy = createProjectionOperator(scanOpOrderBy, 2, projColsOB);
-    embedDBOperator* orderByOp = createOrderByOperator(stateUWA, projColsOrderBy, 1, merge_sort_int32_comparator);
+    //embedDBOperator* orderByOp = createOrderByOperator(stateUWA, projColsOrderBy, 1, merge_sort_int32_comparator);
+    embedDBOperator* orderByOp = createOrderByOperator(stateUWA, projColsOrderBy, 1, -1, int32Comparator);
     orderByOp->init(orderByOp);
     int32_t* recordBuffer = (int32_t*)orderByOp->recordBuffer;
     uint32_t previous = 0;
